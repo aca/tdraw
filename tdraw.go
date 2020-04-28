@@ -15,7 +15,7 @@ import (
 const (
 	MODE_BOX    = "BOX"
 	MODE_LINE   = "LINE"
-	MODE_INSERT = "INSERT"
+	MODE_TEXT   = "TEXT"
 	MODE_ERASOR = "ERASE"
 )
 
@@ -36,13 +36,6 @@ func emitStr(s tcell.Screen, x, y int, style tcell.Style, str string) {
 }
 
 func drawLine(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, r rune) {
-	// if y2 < y1 {
-	// 	y1, y2 = y2, y1
-	// }
-	// if x2 < x1 {
-	// 	x1, x2 = x2, x1
-	// }
-
 	// do not draw point
 	if x1 == x2 && y1 == y2 {
 		return
@@ -117,16 +110,29 @@ func drawBox(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, r rune) {
 		return
 	}
 
-	for col := x1; col <= x2; col++ {
+	for col := x1 + 1; col < x2; col++ {
 		// RuneHLine    = '─'
 		s.SetContent(col, y1, tcell.RuneHLine, nil, tcell.StyleDefault)
 		s.SetContent(col, y2, tcell.RuneHLine, nil, tcell.StyleDefault)
 	}
-	for row := y1; row <= y2; row++ {
+	for row := y1 + 1; row < y2; row++ {
 		// RuneVLine    = '│'
 		s.SetContent(x1, row, tcell.RuneVLine, nil, tcell.StyleDefault)
 		s.SetContent(x2, row, tcell.RuneVLine, nil, tcell.StyleDefault)
 	}
+
+	if y1 == y2 {
+		s.SetContent(x1, y1, tcell.RuneHLine, nil, tcell.StyleDefault)
+		s.SetContent(x2, y2, tcell.RuneHLine, nil, tcell.StyleDefault)
+		return
+	}
+
+	if x1 == x2 {
+		s.SetContent(x1, y1, tcell.RuneVLine, nil, tcell.StyleDefault)
+		s.SetContent(x2, y2, tcell.RuneVLine, nil, tcell.StyleDefault)
+		return
+	}
+
 	if y1 != y2 && x1 != x2 {
 		// Only add corners if we need to
 		s.SetContent(x1, y1, tcell.RuneULCorner, nil, tcell.StyleDefault)
@@ -177,8 +183,6 @@ func main() {
 	s.EnableMouse()
 	s.Clear()
 
-	white := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-
 	// mouse
 	mx, my := -1, -1
 	ox, oy := -1, -1
@@ -192,8 +196,8 @@ func main() {
 	// imodeLastC := ' '
 
 	for {
-		r, _, _, _ := s.GetContent(mx, my)
-		emitStr(s, 1, 1, white, fmt.Sprintf("[%s][%v,%v][%d]"+"   ", mode, mx, my, r))
+		// r, _, _, _ := s.GetContent(mx, my)
+		emitStr(s, 1, 1, defStyle, fmt.Sprintf("[%3v,%3v] %-7s | t:text / l:line / esc:box / MouseR: erase", mx, my, mode))
 
 		s.Show()
 		ev := s.PollEvent()
@@ -210,35 +214,22 @@ func main() {
 
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			// s.Sync()
-			// s.SetContent(w-1, h-1, 'R', nil, st)
+			s.Sync()
 		case *tcell.EventKey:
-
 			if ev.Key() == tcell.KeyCtrlC || ev.Key() == tcell.KeyCtrlD {
 				s.Sync()
-				// s.Fini()
 				sizeX, sizeY := s.Size()
-
-				// arr := make([][]rune, sizeX)
-				// for i := range arr {
-				// 	arr[i] = make([]rune, sizeY)
-				// }
 				arr := make([]string, sizeY)
 
 				for y := 2; y < sizeY; y++ {
 					for x := 0; x < sizeX; x++ {
 						c, _, _, _ := s.GetContent(x, y)
-						// log.Println(x, y, c)
 						arr[y] = arr[y] + string(c)
 					}
 				}
-				s.Clear()
-				s.Sync()
-
 				{
 					n := 0
 					for y := 0; y < len(arr); y++ {
-						// if strings.TrimSpace(arr[y]) == "" || strings.TrimSpace(arr[y]) == "\n" {
 						if strings.TrimSpace(arr[y]) == "" {
 							n++
 						} else {
@@ -252,7 +243,6 @@ func main() {
 					n := 0
 					for y := len(arr) - 1; y >= 0; y-- {
 						if strings.TrimSpace(arr[y]) == "" {
-							// if strings.TrimSpace(arr[y]) == "" || strings.TrimSpace(arr[y]) == "\n" {
 							n++
 						} else {
 							break
@@ -261,6 +251,7 @@ func main() {
 					arr = arr[0 : len(arr)-n]
 				}
 
+				s.Clear()
 				for y := 0; y < len(arr); y++ {
 					fmt.Println(arr[y])
 				}
@@ -272,11 +263,11 @@ func main() {
 				switch ev.Key() {
 				default:
 					switch ev.Rune() {
-					case 'i':
-						mode = MODE_INSERT
+					case 't':
+						mode = MODE_TEXT
 						imodeCurX, imodeCurY = mx, my
 						imodeStartX, _ = mx, my
-						s.SetContent(imodeCurX, imodeCurY, '_', nil, st)
+						s.SetContent(imodeCurX, imodeCurY, '_', nil, st.Blink(true))
 					case 'l':
 						mode = MODE_LINE
 					}
@@ -285,33 +276,37 @@ func main() {
 				switch ev.Key() {
 				case tcell.KeyEscape:
 					mode = MODE_BOX
+				default:
+					switch ev.Rune() {
+					case 't', 'i':
+						mode = MODE_TEXT
+						imodeCurX, imodeCurY = mx, my
+						imodeStartX, _ = mx, my
+						s.SetContent(imodeCurX, imodeCurY, '_', nil, st.Blink(true))
+					}
 				}
 
-			case MODE_INSERT:
+			case MODE_TEXT:
 				switch ev.Key() {
 				case tcell.KeyEscape:
 					mode = MODE_BOX
 					s.SetContent(imodeCurX, imodeCurY, ' ', nil, st)
-					// s.Fini()
-					// os.Exit(0)
 				case tcell.KeyEnter:
-					// mode = MODE_NORMAL
 					s.SetContent(imodeCurX, imodeCurY, ' ', nil, st)
 					imodeCurX = imodeStartX
 					imodeCurY = imodeCurY + 1
 				case tcell.KeyDEL:
 					if imodeCurX > imodeStartX {
 						s.SetContent(imodeCurX, imodeCurY, ' ', nil, st)
-						s.SetContent(imodeCurX-1, imodeCurY, '_', nil, st)
+						s.SetContent(imodeCurX-1, imodeCurY, '_', nil, st.Blink(true))
 						imodeCurX -= 1
 					} else {
 						s.SetContent(imodeCurX, imodeCurY, '_', nil, st)
 					}
 				default:
-					s.SetContent(imodeCurX, imodeCurY, ev.Rune(), nil, st)
-					// imodeLastC, _, _, _ = s.GetContent(imodeCurX, imodeCurY)
+					s.SetContent(imodeCurX, imodeCurY, ev.Rune(), nil, st.Blink(true))
 					imodeCurX += 1
-					s.SetContent(imodeCurX, imodeCurY, '_', nil, st)
+					s.SetContent(imodeCurX, imodeCurY, '_', nil, st.Blink(true))
 				}
 			}
 		case *tcell.EventMouse:
