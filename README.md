@@ -17,12 +17,14 @@ tdraw > draw.txt
 ```
 
 ```
-tdraw has 3 mode.
-
+// tdraw has 4 mode.
 ESC: Box(+Undirected line, default)
 l: Directed line
 t: Text
----
-MouseR: Eraser
+e: Erase
+
 CTRL-C/CTRL-D: exit
+
+// It might not work if terminal emulator consumes right click(iterm2)
+MouseR: Eraser 
 ```
