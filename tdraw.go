@@ -175,6 +175,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", e)
 		os.Exit(1)
 	}
+	defer s.Fini()
 	defStyle = tcell.StyleDefault
 	s.SetStyle(defStyle)
 
@@ -193,6 +194,7 @@ func main() {
 	imodeStartX, _ := 0, 0
 	// imodeLastC := ' '
 
+loop:
 	for {
 		// r, _, _, _ := s.GetContent(mx, my)
 		emitStr(s, 1, 1, defStyle, fmt.Sprintf("[%3v,%3v] %-7s | esc:box / t:text / l:line / e:erase / MouseR: eraser", mx, my, mode))
@@ -253,7 +255,7 @@ func main() {
 				for y := 0; y < len(arr); y++ {
 					fmt.Println(arr[y])
 				}
-				os.Exit(0)
+				break loop
 			}
 
 			switch mode {
