@@ -328,7 +328,7 @@ loop:
 					}
 				default:
 					s.SetContent(imodeCurX, imodeCurY, ev.Rune(), nil, st)
-					imodeCurX += 1
+					imodeCurX += runewidth.RuneWidth(ev.Rune())
 					s.SetContent(imodeCurX, imodeCurY, '_', nil, st.Blink(true))
 				}
 			}
